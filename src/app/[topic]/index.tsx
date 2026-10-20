@@ -12,7 +12,9 @@ import {
   saveLesson,
   saveTopicProgress,
 } from "@/services/lessonRepository";
+import { useRoadmapStore } from "@/stores/roadmapStore";
 import type { GeneratedLesson, TopicContext } from "@/types/lesson";
+import { toTopicSections } from "@/utils/roadmapMapper";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   ArrowLeft,
@@ -124,12 +126,15 @@ function normalizeLanguage(language: string): string {
   return aliases[normalized] ?? normalized;
 }
 
-function topicFromParams(value: string | string[] | undefined): Topic {
+function topicFromParams(
+  value: string | string[] | undefined,
+  sections: TopicSection[],
+): Topic {
   const id = Array.isArray(value) ? value[0] : value;
   return (
-    MOCK_SECTIONS.flatMap((section) => section.topics).find(
+    sections.flatMap((section) => section.topics).find(
       (topic) => topic.id === id || topic.title === id,
-    ) ?? MOCK_SECTIONS[1].topics[2]
+    ) ?? sections[0]?.topics[0] ?? MOCK_SECTIONS[1].topics[2]
   );
 }
 
@@ -144,9 +149,14 @@ function createContext(topic: Topic): TopicContext {
 }
 
 export default function TopicDetailsScreen() {
-  const params = useLocalSearchParams<{ topic?: string }>();
+  const params = useLocalSearchParams<{ topic?: string; roadmapId?: string }>();
   const router = useRouter();
-  const topic = useMemo(() => topicFromParams(params.topic), [params.topic]);
+  const [sections, setSections] = useState<TopicSection[]>(MOCK_SECTIONS);
+  const loadRoadmap = useRoadmapStore((state) => state.loadRoadmap);
+  const topic = useMemo(
+    () => topicFromParams(params.topic, sections),
+    [params.topic, sections],
+  );
   const context = useMemo(() => createContext(topic), [topic]);
   const [lesson, setLesson] = useState<GeneratedLesson | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
@@ -159,6 +169,27 @@ export default function TopicDetailsScreen() {
   const [error, setError] = useState<string | null>(null);
   const requestInFlight = useRef(false);
   const { isDark, colors } = useTheme();
+  const topics = useMemo(
+    () => sections.flatMap((section) => section.topics),
+    [sections],
+  );
+  const nextTopic = useMemo(() => {
+    const currentIndex = topics.findIndex((item) => item.id === topic.id);
+    if (currentIndex === -1 || currentIndex + 1 >= topics.length) return null;
+    return topics[currentIndex + 1];
+  }, [topic.id, topics]);
+
+  useEffect(() => {
+    const roadmapId = Array.isArray(params.roadmapId)
+      ? params.roadmapId[0]
+      : params.roadmapId;
+    if (!roadmapId) return;
+
+    void loadRoadmap(roadmapId).then((roadmap) => {
+      if (!roadmap?.sections.length) return;
+      setSections(toTopicSections(roadmap.sections));
+    });
+  }, [loadRoadmap, params.roadmapId]);
 
   const loadLesson = useCallback(
     async (force = false) => {
@@ -194,12 +225,15 @@ export default function TopicDetailsScreen() {
 
   const selectAnswer = (answer: number) => {
     if (!lesson) return;
+    const isCorrect = answer === lesson.quiz.correctAnswer;
+    const isCompleted = completed || isCorrect;
     setSelected(answer);
+    setCompleted(isCompleted);
     void saveTopicProgress(
       context.id,
-      completed,
+      isCompleted,
       answer,
-      answer === lesson.quiz.correctAnswer,
+      isCorrect,
     );
   };
 
@@ -223,7 +257,15 @@ export default function TopicDetailsScreen() {
 
   const selectTopic = (next: Topic) => {
     setShowSidebar(false);
-    router.push(`/${next.id}`);
+    router.push({
+      pathname: "/[topic]",
+      params: {
+        topic: next.id,
+        roadmapId: Array.isArray(params.roadmapId)
+          ? params.roadmapId[0]
+          : params.roadmapId,
+      },
+    });
   };
 
   return (
@@ -231,7 +273,7 @@ export default function TopicDetailsScreen() {
       <TopicsSidebar
         visible={showSidebar}
         activeId={topic.id}
-        sections={MOCK_SECTIONS}
+        sections={sections}
         onClose={() => setShowSidebar(false)}
         onSelect={selectTopic}
       />
@@ -509,20 +551,22 @@ export default function TopicDetailsScreen() {
                   إعادة إنشاء الدرس
                 </Text>
               </Pressable>
-              <Pressable
-                onPress={() => router.push("/t9")}
-                className="mt-4 flex-row items-center justify-between rounded-lg bg-primary px-5 py-4 active:opacity-80"
-              >
-                <View className="flex-row items-center gap-2">
-                  <Text className="font-cairo text-label-sm uppercase tracking-widest text-white text-start">
-                    التالي
-                  </Text>
-                  <Text className="text-button font-cairo-bold font-semibold text-white text-start">
-                    الموضوع 04: معالم ARIA
-                  </Text>
-                </View>
-                <ArrowLeft size={18} color={"white"} />
-              </Pressable>
+              {nextTopic && (
+                <Pressable
+                  onPress={() => selectTopic(nextTopic)}
+                  className="mt-4 flex-row items-center justify-between rounded-lg bg-primary px-5 py-4 active:opacity-80"
+                >
+                  <View className="flex-row items-center gap-2">
+                    <Text className="font-cairo text-label-sm uppercase tracking-widest text-white text-start">
+                      التالي
+                    </Text>
+                    <Text className="text-button font-cairo-bold font-semibold text-white text-start">
+                      {nextTopic.title}
+                    </Text>
+                  </View>
+                  <ArrowLeft size={18} color={"white"} />
+                </Pressable>
+              )}
             </>
           ) : null}
         </ScrollView>

@@ -13,7 +13,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const { isDark } = useColorScheme();
+  useColorScheme();
 
   const [fontsLoaded, fontError] = useFonts({
     Cairo: require("@/assets/fonts/Cairo-Regular.ttf"),
@@ -65,11 +65,6 @@ export default function RootLayout() {
           <Stack.Screen name="roadmaps" options={{ headerShown: false }} />
           <Stack.Screen name="settings" options={{ headerShown: false }} />
           <Stack.Screen name="roadmap/[id]" options={{ headerShown: false }} />
-          <Stack.Screen name="roadmap/index" options={{ headerShown: false }} />
-          <Stack.Screen
-            name="roadmap-details"
-            options={{ headerShown: false }}
-          />
         </Stack>
       </BottomSheetModalProvider>
     </GestureHandlerRootView>

@@ -93,7 +93,7 @@ export default function SettingsScreen() {
             className="mt-3 items-center rounded-lg bg-primary px-4 py-3 active:opacity-80"
           >
             <Text className="font-cairo-semibold font-semibold text-onPrimary">
-              {saved ? "تم الحفظ بأمان" : "حفظ  API kEY"}
+              {saved ? "تم الحفظ بأمان" : "حفظ API Key"}
             </Text>
           </Pressable>
         </View>
