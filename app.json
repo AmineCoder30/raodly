@@ -1,0 +1,44 @@
+{
+  "expo": {
+    "name": "Roadly",
+    "slug": "Roadly",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "roadly",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "icon": "./assets/images/image.png"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/images/image.png",
+        "backgroundImage": "./assets/images/image.png",
+        "monochromeImage": "./assets/images/image.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.amine_sebbani.Roadly"
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/image.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#208AEF",
+          "image": "./assets/images/image.png",
+          "imageWidth": 76
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}

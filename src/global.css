@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Light Theme (default) ─── */
+:root {
+  --color-primary: 123 44 191; /* #7B2CBF */
+  --color-primary-dark: 90 24 145; /* #5A1891 */
+
+  --color-secondary: 26 26 46; /* #1A1A2E */
+
+  --color-background: 250 249 247; /* #FAF9F7 */
+  --color-card: 255 255 255; /* #FFFFFF */
+  --color-border: 232 229 225; /* #E8E5E1 */
+
+  --color-surface: 255 255 255; /* #FFFFFF */
+  --color-surface-container-lowest: 255 255 255; /* #FFFFFF */
+
+  --color-on-surface: 26 26 26; /* #1A1A1A */
+  --color-on-surface-variant: 92 92 92; /* #5C5C5C */
+
+  --color-on-primary: 255 255 255; /* #FFFFFF */
+
+  --color-outline: 92 92 92; /* #5C5C5C */
+  --color-outline-variant: 232 229 225; /* #E8E5E1 */
+
+  --color-text-primary: 26 26 26; /* #1A1A1A */
+  --color-text-secondary: 92 92 92; /* #5C5C5C */
+
+  --color-neutral-light: 243 242 240; /* #F3F2F0 */
+
+  --color-success: 46 204 113; /* #2ECC71 */
+  --color-warning: 255 167 38; /* #FFA726 */
+  --color-error: 229 57 53; /* #E53935 */
+
+  --color-disabled-bg: 234 234 234; /* #EAEAEA */
+  --color-disabled-text: 160 160 160; /* #A0A0A0 */
+}
+
+/* ─── Dark Theme ─── */
+.dark {
+  --color-primary: 192 132 252; /* #C084FC */
+  --color-primary-dark: 168 85 247; /* #A855F7 */
+
+  --color-secondary: 45 47 52; /* #2D2F34 */
+
+  --color-background: 30 31 33; /* #1E1F21 */
+  --color-card: 41 42 46; /* #292A2E */
+  --color-border: 61 63 68; /* #3D3F44 */
+
+  --color-surface: 41 42 46; /* #292A2E */
+  --color-surface-container-lowest: 24 25 27; /* #18191B */
+
+  --color-on-surface: 245 245 245; /* #F5F5F5 */
+  --color-on-surface-variant: 181 183 189; /* #B5B7BD */
+
+  --color-on-primary: 30 20 40; /* #1E1428 */
+
+  --color-outline: 138 141 147; /* #8A8D93 */
+  --color-outline-variant: 61 63 68; /* #3D3F44 */
+
+  --color-text-primary: 245 245 245; /* #F5F5F5 */
+  --color-text-secondary: 168 171 178; /* #A8ABB2 */
+
+  --color-neutral-light: 53 54 58; /* #35363A */
+
+  --color-success: 46 204 113; /* #2ECC71 */
+  --color-warning: 255 167 38; /* #FFA726 */
+  --color-error: 229 57 53; /* #E53935 */
+
+  --color-disabled-bg: 52 54 58; /* #34363A */
+  --color-disabled-text: 119 122 130; /* #777A82 */
+}
