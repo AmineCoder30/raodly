@@ -24,7 +24,7 @@ export default function RoadmapsScreen() {
 
   const handleOpenRoadmap = (id: string) => {
     router.push({
-      pathname: "/roadmap/[id]" as any,
+      pathname: "/roadmap/[id]",
       params: { id },
     });
   };

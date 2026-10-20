@@ -132,10 +132,13 @@ export default function RoadmapDetailsScreen() {
   }, [roadmap.nodes, centers, theme]);
 
   const handleContinue = () => {
+    const activeNode = roadmap.nodes.find((node) => node.state === "active");
+    const nextTopicId = activeNode ? `t${activeNode.id}` : `t${roadmap.nodes[0]?.id ?? 1}`;
     router.push({
-      pathname: "/[topic]" as any,
+      pathname: "/[topic]",
       params: {
-        topic: "altimg",
+        topic: nextTopicId,
+        roadmapId: roadmap.id,
         title: roadmap.nextSectionTitle,
       },
     });
@@ -220,6 +223,7 @@ export default function RoadmapDetailsScreen() {
               <DuoNode
                 key={node.id}
                 node={node}
+                roadmapId={roadmap.id}
                 cx={c.cx + PAD_TOP}
                 cy={c.cy + PAD_TOP}
                 theme={theme}
@@ -250,11 +254,13 @@ export default function RoadmapDetailsScreen() {
 // ── Duolingo-style 3D circular node ──────────────────────────────────
 function DuoNode({
   node,
+  roadmapId,
   cx,
   cy,
   theme,
 }: {
   node: ModuleNode;
+  roadmapId: string;
   cx: number;
   cy: number;
   theme: UseThemeReturn;
@@ -281,9 +287,10 @@ function DuoNode({
   const handlePress = () => {
     if (node.state === "locked") return;
     router.push({
-      pathname: "/[topic]" as any,
+      pathname: "/[topic]",
       params: {
-        topic: "altimg",
+        topic: `t${node.id}`,
+        roadmapId,
         title: node.title,
       },
     });
