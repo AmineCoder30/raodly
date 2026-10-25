@@ -1,70 +1,58 @@
 export type RoadmapDifficulty = "beginner" | "intermediate" | "advanced";
-export type RoadmapVisibility = "private" | "public";
-export type TopicProgressStatus = "locked" | "active" | "completed";
 
 export type Roadmap = {
-  id: string;
+  id: number;
   title: string;
   description: string | null;
-  category: string | null;
+  progress: string;
   difficulty: RoadmapDifficulty;
-  language: string;
-  createdBy: string | null;
-  visibility: RoadmapVisibility;
   createdAt: string;
-  updatedAt: string;
-  deletedAt: string | null;
 };
 
 export type RoadmapTopic = {
-  id: string;
-  sectionId: string;
+  id: number;
+  roadmapId: number;
   title: string;
   description: string | null;
   orderIndex: number;
-  estimatedMinutes: number | null;
   createdAt: string;
-  updatedAt: string;
-  deletedAt: string | null;
-};
-
-export type RoadmapTopicWithProgress = RoadmapTopic & {
-  completed: boolean;
-  progress: TopicProgress | null;
-};
-
-export type RoadmapSection = {
-  id: string;
-  roadmapId: string;
-  title: string;
-  orderIndex: number;
-  createdAt: string;
-  updatedAt: string;
-  deletedAt: string | null;
-  topics: RoadmapTopicWithProgress[];
 };
 
 export type TopicLesson = {
-  id: string;
-  topicId: string;
+  id: number;
+  topicId: number;
   title: string;
+  description: string | null;
   orderIndex: number;
   createdAt: string;
-  updatedAt: string;
-  deletedAt: string | null;
 };
 
-export type RoadmapWithSections = Roadmap & { sections: RoadmapSection[] };
-/** @deprecated Use RoadmapWithSections. */
-export type RoadmapWithTopics = RoadmapWithSections;
-
-export type TopicProgress = {
-  id: string;
-  userId: string;
-  topicId: string;
-  status: TopicProgressStatus;
-  completedAt: string | null;
-  updatedAt: string;
+export type Lesson = {
+  id: number;
+  topicLessonId: number;
+  isCompleted: boolean;
+  language: string;
+  contentVersion: string;
+  lessonJson: string;
   quizAnswer: number | null;
   quizCorrect: boolean;
+  updatedAt: number;
+};
+
+export type LessonMessage = {
+  id: number;
+  lessonId: number;
+  question: string;
+  answerJson: string;
+  createdAt: string;
+};
+
+/** A topic with its lessons and their completion status */
+export type RoadmapTopicWithLessons = RoadmapTopic & {
+  lessons: (TopicLesson & { completed: boolean })[];
+};
+
+/** A full roadmap with all its topics and nested lessons */
+export type RoadmapWithTopics = Roadmap & {
+  topics: RoadmapTopicWithLessons[];
 };

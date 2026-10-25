@@ -1,4 +1,4 @@
-import type { RoadmapSection } from "@/types/roadmap";
+import type { RoadmapTopicWithLessons } from "@/types/roadmap";
 
 export type UiTopic = {
   id: string;
@@ -12,16 +12,23 @@ export type UiTopicSection = {
   topics: UiTopic[];
 };
 
+/**
+ * Map the new flat topics array (each with nested lessons) into the
+ * TopicSection[] shape that the sidebar UI expects.
+ *
+ * Each RoadmapTopic becomes a "section" heading, and its topic_lessons
+ * become the navigable items underneath.
+ */
 export function toTopicSections(
-  sections: RoadmapSection[],
+  topics: RoadmapTopicWithLessons[],
 ): UiTopicSection[] {
-  return sections.map((section) => ({
-    id: section.id,
-    title: section.title,
-    topics: section.topics.map((topic) => ({
-      id: topic.id,
-      title: topic.title,
-      completed: topic.completed,
+  return topics.map((topic) => ({
+    id: String(topic.id),
+    title: topic.title,
+    topics: topic.lessons.map((lesson) => ({
+      id: String(lesson.id),
+      title: lesson.title,
+      completed: lesson.completed,
     })),
   }));
 }

@@ -4,6 +4,8 @@ import TopicsSidebar, {
   type TopicSection,
 } from "@/components/layout/features/topic/TitlesSidebar";
 import SafeScreen from "@/components/layout/global/SafeScreen";
+import ErrorCard from "@/components/ui/features/topic/ErrorCard";
+import { getRoadmapById } from "@/constants/roadmaps";
 import { useTheme } from "@/hooks/use-theme";
 import { askLessonFollowUp, generateLesson } from "@/services/gemini";
 import {
@@ -11,7 +13,9 @@ import {
   getTopicProgress,
   saveLesson,
   saveTopicProgress,
+  saveLessonMessage,
 } from "@/services/lessonRepository";
+import { fetchTopicLessonContent } from "@/services/syncService";
 import { useRoadmapStore } from "@/stores/roadmapStore";
 import type { GeneratedLesson, TopicContext } from "@/types/lesson";
 import { toTopicSections } from "@/utils/roadmapMapper";
@@ -132,9 +136,11 @@ function topicFromParams(
 ): Topic {
   const id = Array.isArray(value) ? value[0] : value;
   return (
-    sections.flatMap((section) => section.topics).find(
-      (topic) => topic.id === id || topic.title === id,
-    ) ?? sections[0]?.topics[0] ?? MOCK_SECTIONS[1].topics[2]
+    sections
+      .flatMap((section) => section.topics)
+      .find((topic) => topic.id === id || topic.title === id) ??
+    sections[0]?.topics[0] ??
+    MOCK_SECTIONS[1].topics[2]
   );
 }
 
@@ -148,10 +154,48 @@ function createContext(topic: Topic): TopicContext {
   };
 }
 
+function getNodeSections(
+  roadmapId: string | undefined,
+  nodeId: string | undefined,
+): TopicSection[] {
+  if (!roadmapId || !nodeId) return [];
+
+  const node = getRoadmapById(roadmapId).nodes.find(
+    (item) => item.id === Number(nodeId),
+  );
+  if (!node) return [];
+
+  return [
+    {
+      id: `${roadmapId}-node-${node.id}`,
+      title: node.title,
+      topics: node.topics.map((item) => ({
+        id: item.id,
+        title: item.title,
+        completed: item.completed,
+      })),
+    },
+  ];
+}
+
 export default function TopicDetailsScreen() {
-  const params = useLocalSearchParams<{ topic?: string; roadmapId?: string }>();
+  const params = useLocalSearchParams<{
+    topic?: string;
+    roadmapId?: string;
+    nodeId?: string;
+  }>();
   const router = useRouter();
-  const [sections, setSections] = useState<TopicSection[]>(MOCK_SECTIONS);
+  const roadmapId = Array.isArray(params.roadmapId)
+    ? params.roadmapId[0]
+    : params.roadmapId;
+  const nodeId = Array.isArray(params.nodeId) ? params.nodeId[0] : params.nodeId;
+  const nodeSections = useMemo(
+    () => getNodeSections(roadmapId, nodeId),
+    [roadmapId, nodeId],
+  );
+  const [sections, setSections] = useState<TopicSection[]>(
+    nodeSections.length > 0 ? nodeSections : MOCK_SECTIONS,
+  );
   const loadRoadmap = useRoadmapStore((state) => state.loadRoadmap);
   const topic = useMemo(
     () => topicFromParams(params.topic, sections),
@@ -180,37 +224,90 @@ export default function TopicDetailsScreen() {
   }, [topic.id, topics]);
 
   useEffect(() => {
-    const roadmapId = Array.isArray(params.roadmapId)
-      ? params.roadmapId[0]
-      : params.roadmapId;
+    if (nodeSections.length > 0) {
+      setSections(nodeSections);
+      return;
+    }
+
     if (!roadmapId) return;
 
-    void loadRoadmap(roadmapId).then((roadmap) => {
-      if (!roadmap?.sections.length) return;
-      setSections(toTopicSections(roadmap.sections));
+    const numericRoadmapId = Number(roadmapId);
+    if (isNaN(numericRoadmapId)) return;
+
+    void loadRoadmap(numericRoadmapId).then((roadmap) => {
+      if (!roadmap?.topics.length) return;
+      setSections(toTopicSections(roadmap.topics));
     });
-  }, [loadRoadmap, params.roadmapId]);
+  }, [loadRoadmap, nodeSections, roadmapId]);
 
   const loadLesson = useCallback(
     async (force = false) => {
       if (requestInFlight.current) return;
       requestInFlight.current = true;
-      setLoading(true);
       setError(null);
+
       try {
-        const cached = force ? null : await getCachedLesson(context.id, "ar");
-        const nextLesson = cached ?? (await generateLesson(context));
-        if (!cached) await saveLesson(context.id, "ar", nextLesson);
-        setLesson(nextLesson);
+        // Step 1: Check if content is already cached locally for instant display
+        const localCached = force
+          ? null
+          : await getCachedLesson(context.id, "ar");
         const progress = await getTopicProgress(context.id);
         setCompleted(Boolean(progress?.completed));
         setSelected(progress?.quiz_answer ?? null);
-      } catch (cause) {
-        setError(
-          cause instanceof Error && cause.message === "GEMINI_API_KEY_MISSING"
-            ? "أضف مفتاح Gemini من الإعدادات أولاً."
-            : "تعذر إنشاء الدرس. تحقق من الاتصال ومفتاح Gemini ثم حاول مجدداً.",
+
+        if (localCached) {
+          // Instantly display cached lesson without waiting for network
+          setLesson(localCached);
+          setLoading(false);
+
+          // Background check: if remote lesson has been updated, refresh local cache & UI
+          void fetchTopicLessonContent(context.id, "ar")
+            .then(({ lesson: remoteLesson, fromCache }) => {
+              if (!fromCache && remoteLesson) {
+                setLesson(remoteLesson);
+              }
+            })
+            .catch((err) => {
+              console.warn("[loadLesson] Background update check failed:", err);
+            });
+
+          return;
+        }
+
+        // Step 2: Content is not cached locally — show loading state
+        setLoading(true);
+
+        // Fetch from Supabase and cache into SQLite
+        const { lesson: remoteLesson } = await fetchTopicLessonContent(
+          context.id,
+          "ar",
         );
+
+        if (remoteLesson) {
+          setLesson(remoteLesson);
+          const updatedProgress = await getTopicProgress(context.id);
+          setCompleted(Boolean(updatedProgress?.completed));
+          setSelected(updatedProgress?.quiz_answer ?? null);
+          return;
+        }
+
+        // Step 3: If remote did not have pre-existing lesson content, fallback to AI generation
+        const generated = await generateLesson(context);
+        await saveLesson(context.id, "ar", generated);
+        setLesson(generated);
+      } catch (cause) {
+        // Step 4: Offline / Error behavior
+        // If network request failed but cached content exists, continue using cached content
+        const cachedFallback = await getCachedLesson(context.id, "ar");
+        if (cachedFallback) {
+          setLesson(cachedFallback);
+        } else {
+          setError(
+            cause instanceof Error && cause.message === "GEMINI_API_KEY_MISSING"
+              ? "أضف مفتاح Gemini من الإعدادات أولاً."
+              : "تعذر تحميل الدرس. تحقق من الاتصال بالإنترنت ثم حاول مجدداً.",
+          );
+        }
       } finally {
         setLoading(false);
         requestInFlight.current = false;
@@ -229,12 +326,7 @@ export default function TopicDetailsScreen() {
     const isCompleted = completed || isCorrect;
     setSelected(answer);
     setCompleted(isCompleted);
-    void saveTopicProgress(
-      context.id,
-      isCompleted,
-      answer,
-      isCorrect,
-    );
+    void saveTopicProgress(context.id, isCompleted, answer, isCorrect);
   };
 
   const ask = async (value = question) => {
@@ -247,6 +339,7 @@ export default function TopicDetailsScreen() {
       const result = await askLessonFollowUp(context, prompt);
       setFollowUp(result.answer);
       setQuestion("");
+      void saveLessonMessage(context.id, prompt, result.answer);
     } catch {
       setError("تعذر الحصول على إجابة الآن. حاول مرة أخرى.");
     } finally {
@@ -261,9 +354,8 @@ export default function TopicDetailsScreen() {
       pathname: "/[topic]",
       params: {
         topic: next.id,
-        roadmapId: Array.isArray(params.roadmapId)
-          ? params.roadmapId[0]
-          : params.roadmapId,
+        roadmapId,
+        nodeId,
       },
     });
   };
@@ -305,29 +397,7 @@ export default function TopicDetailsScreen() {
           {loading ? (
             <LessonSkeleton />
           ) : error && !lesson ? (
-            <View className="mt-6 rounded-lg border border-warning bg-card ">
-              <Text className="text-body-md text-textPrimary font-cairo text-start">
-                {error}
-              </Text>
-              <View className="mt-4 flex-row gap-3">
-                <Pressable
-                  onPress={() => void loadLesson()}
-                  className="rounded-md bg-primary px-4 py-2"
-                >
-                  <Text className="font-cairo-semibold font-semibold text-onPrimary text-start">
-                    إعادة المحاولة
-                  </Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => router.push("/settings")}
-                  className="rounded-md border border-border px-4 py-2"
-                >
-                  <Text className="text-textPrimary font-cairo text-start">
-                    الإعدادات
-                  </Text>
-                </Pressable>
-              </View>
-            </View>
+            <ErrorCard error={error} onRetry={() => void loadLesson(true)} />
           ) : lesson ? (
             <>
               <Text className="mt-5 text-headline-lg-mobile font-cairo-bold font-bold text-textPrimary text-start">
@@ -397,11 +467,12 @@ export default function TopicDetailsScreen() {
                       language={normalizeLanguage(example.language)}
                       hljsStyle={isDark ? atomOneDark : atomOneLight}
                       textStyle={{ fontSize: 13, fontFamily: "monospace" }}
+                      containerStyle={{ width: "100%" }}
 
                       scrollViewProps={{
                         horizontal: true,
                         contentContainerStyle: { padding: 16 },
-                        style: { backgroundColor: colors.card, width: "100%" },
+                        style: { backgroundColor: colors.card, flex: 1 },
                       }}
                     >
                       {example.code}

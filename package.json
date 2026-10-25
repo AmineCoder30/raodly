@@ -6,6 +6,8 @@
     "@expo/ui": "~57.0.22",
     "@google/genai": "^1.27.0",
     "@gorhom/bottom-sheet": "^5.2.14",
+    "@supabase/supabase-js": "^2.118.0",
+    "cheerio": "^1.2.0",
     "expo": "~57.0.27",
     "expo-constants": "~57.0.21",
     "expo-device": "~57.0.2",
@@ -55,10 +57,10 @@
   },
   "scripts": {
     "start": "expo start",
-    "reset-project": "node ./scripts/reset-project.js",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
+    "extract": "node scripts/extract-html.js",
     "lint": "expo lint",
     "test": "jest"
   },

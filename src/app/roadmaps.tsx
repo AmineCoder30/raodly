@@ -1,7 +1,9 @@
 import SafeScreen from "@/components/layout/global/SafeScreen";
 import { RoadmapCard } from "@/components/roadmap-card";
 import { ROADMAPS } from "@/constants/roadmaps";
+import { getTableItems, listTables } from "@/database/listTables";
 import { useTheme } from "@/hooks/use-theme";
+import { useRoadmapStore } from "@/stores/roadmapStore";
 import { router } from "expo-router";
 import {
   Globe,
@@ -10,6 +12,7 @@ import {
   Settings,
   ShieldCheck,
 } from "lucide-react-native";
+import { useEffect, useMemo } from "react";
 import {
   Image,
   Pressable,
@@ -21,6 +24,8 @@ import {
 
 export default function RoadmapsScreen() {
   const theme = useTheme();
+  const roadmaps = useRoadmapStore((state) => state.roadmaps);
+  const hydrate = useRoadmapStore((state) => state.hydrate);
 
   const handleOpenRoadmap = (id: string) => {
     router.push({
@@ -28,6 +33,68 @@ export default function RoadmapsScreen() {
       params: { id },
     });
   };
+
+  useEffect(() => {
+    // 1. Startup sync: fetch available roadmaps from Supabase, insert missing into SQLite, preserve progress
+    void hydrate();
+
+    const fetchTables = async () => {
+      try {
+        const tables = await listTables();
+        console.log("Database tables:", tables);
+      } catch (error) {
+        console.error("Error fetching tables:", error);
+      }
+    };
+
+    fetchTables();
+  }, [hydrate]);
+
+  // Combine synced SQLite roadmaps with static roadmaps so existing roadmaps remain available
+  // and newly added remote roadmaps dynamically appear.
+  const displayRoadmaps = useMemo(() => {
+    if (roadmaps && roadmaps.length > 0) {
+      const sqliteMapped = roadmaps.map((r) => {
+        const staticMatch = ROADMAPS.find(
+          (sr) =>
+            sr.title.trim().toLowerCase() === r.title.trim().toLowerCase() ||
+            sr.id === String(r.id),
+        );
+        const progressNum = parseInt(r.progress.replace(/\D/g, ""), 10) || 0;
+        const total = staticMatch?.topicsTotal ?? 10;
+        const completed =
+          staticMatch?.topicsCompleted ??
+          Math.round((progressNum / 100) * total);
+
+        return {
+          id: String(r.id),
+          level: (r.difficulty === "intermediate"
+            ? "Intermediate"
+            : r.difficulty === "advanced"
+              ? "Advanced"
+              : "Beginner") as "Beginner" | "Intermediate" | "Advanced",
+          hours: staticMatch?.hours ?? 120,
+          title: r.title,
+          description: r.description ?? staticMatch?.description ?? "",
+          topicsCompleted: completed,
+          topicsTotal: total,
+          nextSectionTitle: staticMatch?.nextSectionTitle ?? "القسم الأول",
+          isCompleted: progressNum >= 100,
+        };
+      });
+
+      const sqliteTitles = new Set(
+        roadmaps.map((r) => r.title.trim().toLowerCase()),
+      );
+      const remainingStatic = ROADMAPS.filter(
+        (sr) => !sqliteTitles.has(sr.title.trim().toLowerCase()),
+      );
+
+      return [...sqliteMapped, ...remainingStatic];
+    }
+
+    return ROADMAPS;
+  }, [roadmaps]);
 
   return (
     <SafeScreen classes="p-0">
@@ -87,7 +154,7 @@ export default function RoadmapsScreen() {
             </Text>
             <View className="bg-primary/15 rounded-full px-2.5 py-1">
               <Text className="text-primary text-[10px] font-cairo-bold font-bold">
-                3
+                {displayRoadmaps.length}
               </Text>
             </View>
           </View>
@@ -104,7 +171,7 @@ export default function RoadmapsScreen() {
         </View>
 
         {/* Cards List */}
-        {ROADMAPS.map((roadmap) => (
+        {displayRoadmaps.map((roadmap) => (
           <RoadmapCard
             key={roadmap.id}
             level={roadmap.level}

@@ -6,10 +6,12 @@ import {
   type NodeState,
 } from "@/constants/roadmaps";
 import { useTheme, type UseThemeReturn } from "@/hooks/use-theme";
+import { useRoadmapStore } from "@/stores/roadmapStore";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, ArrowRight, Check, Lock, Play } from "lucide-react-native";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -102,9 +104,113 @@ export default function RoadmapDetailsScreen() {
   const theme = useTheme();
   const { width: windowWidth } = useWindowDimensions();
 
+  const roadmaps = useRoadmapStore((state) => state.roadmaps);
+  const activeRoadmap = useRoadmapStore((state) => state.activeRoadmap);
+  const loadRoadmap = useRoadmapStore((state) => state.loadRoadmap);
+  const storeLoading = useRoadmapStore((state) => state.isLoading);
+  const storeError = useRoadmapStore((state) => state.error);
+
+  // Resolve numeric roadmap ID if available (either numeric string or matching title)
+  const numericId = useMemo(() => {
+    if (!params.id) return null;
+    const parsed = parseInt(params.id, 10);
+    if (!isNaN(parsed) && String(parsed) === params.id) {
+      return parsed;
+    }
+    const staticRoadmap = getRoadmapById(params.id);
+    const matched = roadmaps.find(
+      (r) =>
+        r.title.trim().toLowerCase() === staticRoadmap.title.trim().toLowerCase(),
+    );
+    return matched ? matched.id : null;
+  }, [params.id, roadmaps]);
+
+  // Fetch roadmap topics on demand when opening this roadmap
+  useEffect(() => {
+    if (numericId != null) {
+      void loadRoadmap(numericId);
+    }
+  }, [numericId, loadRoadmap]);
+
+  // Construct display roadmap from activeRoadmap (SQLite/Supabase) or static constants
   const roadmap = useMemo(() => {
+    if (activeRoadmap && numericId != null && activeRoadmap.id === numericId) {
+      if (activeRoadmap.topics.length > 0) {
+        const nodes: ModuleNode[] = activeRoadmap.topics.map((topic, index) => {
+          const totalLessons = topic.lessons.length;
+          const completedLessons = topic.lessons.filter((l) => l.completed).length;
+          const progress = totalLessons > 0 ? completedLessons / totalLessons : 0;
+
+          let state: NodeState = "locked";
+          if (totalLessons > 0 && completedLessons === totalLessons) {
+            state = "completed";
+          } else if (index === 0) {
+            state = "active";
+          } else {
+            const prev = activeRoadmap.topics[index - 1];
+            const prevCompleted =
+              prev &&
+              prev.lessons.length > 0 &&
+              prev.lessons.every((l) => l.completed);
+            state = prevCompleted ? "active" : "locked";
+          }
+
+          const topicsList =
+            topic.lessons.length > 0
+              ? topic.lessons.map((l) => ({
+                  id: String(l.id),
+                  title: l.title,
+                  completed: l.completed,
+                }))
+              : [
+                  {
+                    id: String(topic.id),
+                    title: topic.title,
+                    completed: false,
+                  },
+                ];
+
+          return {
+            id: topic.id,
+            title: topic.title,
+            subtitle:
+              totalLessons > 0
+                ? `${completedLessons} من ${totalLessons} مكتملة`
+                : (topic.description ?? "المواضيع"),
+            state,
+            progress,
+            topics: topicsList,
+          };
+        });
+
+        const activeNode = nodes.find((n) => n.state === "active") ?? nodes[0];
+
+        return {
+          id: String(activeRoadmap.id),
+          level: (activeRoadmap.difficulty === "intermediate"
+            ? "Intermediate"
+            : activeRoadmap.difficulty === "advanced"
+              ? "Advanced"
+              : "Beginner") as "Beginner" | "Intermediate" | "Advanced",
+          hours: 120,
+          title: activeRoadmap.title,
+          description: activeRoadmap.description ?? "",
+          topicsCompleted: nodes.reduce(
+            (acc, n) => acc + n.topics.filter((t) => t.completed).length,
+            0,
+          ),
+          topicsTotal: nodes.reduce((acc, n) => acc + n.topics.length, 0),
+          nextSectionTitle: activeNode?.title ?? "البداية",
+          isCompleted:
+            nodes.length > 0 && nodes.every((n) => n.state === "completed"),
+          modulesCount: nodes.length,
+          nodes,
+        };
+      }
+    }
+
     return getRoadmapById(params.id) ?? DEFAULT_ROADMAP;
-  }, [params.id]);
+  }, [activeRoadmap, numericId, params.id]);
 
   // Responsive container width inside padding (16px left + 16px right = 32px)
   const containerWidth = Math.max(windowWidth - 32, 280);
@@ -133,13 +239,16 @@ export default function RoadmapDetailsScreen() {
 
   const handleContinue = () => {
     const activeNode = roadmap.nodes.find((node) => node.state === "active");
-    const nextTopicId = activeNode ? `t${activeNode.id}` : `t${roadmap.nodes[0]?.id ?? 1}`;
+    const selectedNode = activeNode ?? roadmap.nodes[0];
+    const firstTopic = selectedNode?.topics[0];
+    if (!selectedNode || !firstTopic) return;
+
     router.push({
       pathname: "/[topic]",
       params: {
-        topic: nextTopicId,
+        topic: firstTopic.id,
         roadmapId: roadmap.id,
-        title: roadmap.nextSectionTitle,
+        nodeId: String(selectedNode.id),
       },
     });
   };
@@ -149,6 +258,41 @@ export default function RoadmapDetailsScreen() {
     Intermediate: "متوسط",
     Advanced: "متقدم",
   };
+
+  // If loading and no cached nodes exist yet, display loading state
+  if (storeLoading && roadmap.nodes.length === 0) {
+    return (
+      <SafeScreen classes="p-0">
+        <View className="flex-1 items-center justify-center bg-background px-6">
+          <ActivityIndicator size="large" color={theme.primary} />
+          <Text className="mt-4 font-cairo text-sm text-textSecondary">
+            جاري تحميل مواضيع المسار...
+          </Text>
+        </View>
+      </SafeScreen>
+    );
+  }
+
+  // If error occurred and no content exists, display error with retry
+  if (storeError && roadmap.nodes.length === 0) {
+    return (
+      <SafeScreen classes="p-0">
+        <View className="flex-1 items-center justify-center bg-background px-6">
+          <Text className="mb-4 text-center font-cairo text-base text-textPrimary">
+            تعذر تحميل مواضيع المسار. تحقق من اتصالك بالإنترنت.
+          </Text>
+          <Pressable
+            onPress={() => numericId != null && loadRoadmap(numericId)}
+            className="rounded-xl bg-primary px-6 py-3"
+          >
+            <Text className="font-cairo-bold font-bold text-white">
+              إعادة المحاولة
+            </Text>
+          </Pressable>
+        </View>
+      </SafeScreen>
+    );
+  }
 
   return (
     <SafeScreen classes="p-0">
@@ -178,6 +322,7 @@ export default function RoadmapDetailsScreen() {
           paddingHorizontal: 16,
           paddingTop: 20,
           paddingBottom: 24,
+          direction: "ltr",
         }}
         showsVerticalScrollIndicator={false}
       >
@@ -196,7 +341,7 @@ export default function RoadmapDetailsScreen() {
 
         {/* ── Duolingo-Style Path Card ── */}
         <View
-          className="overflow-hidden   "
+          className="overflow-hidden"
           style={{ height: totalHeight + PAD_TOP * 2, width: containerWidth }}
         >
           {/* SVG connector dots */}
@@ -286,12 +431,15 @@ function DuoNode({
 
   const handlePress = () => {
     if (node.state === "locked") return;
+    const firstTopic = node.topics[0];
+    if (!firstTopic) return;
+
     router.push({
       pathname: "/[topic]",
       params: {
-        topic: `t${node.id}`,
+        topic: firstTopic.id,
         roadmapId,
-        title: node.title,
+        nodeId: String(node.id),
       },
     });
   };

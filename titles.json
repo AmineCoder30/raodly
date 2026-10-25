@@ -1,0 +1,657 @@
+[
+  {
+    "id": 1,
+    "section": "HTML Introduction",
+    "title": "Introduction"
+  },
+  {
+    "id": 2,
+    "section": "HTML Introduction",
+    "title": "Exercises"
+  },
+  {
+    "id": 3,
+    "section": "HTML Basic",
+    "title": "Basic"
+  },
+  {
+    "id": 4,
+    "section": "HTML Basic",
+    "title": "Exercises"
+  },
+  {
+    "id": 5,
+    "section": "HTML Basic",
+    "title": "Code Challenge"
+  },
+  {
+    "id": 6,
+    "section": "HTML Elements",
+    "title": "Elements"
+  },
+  {
+    "id": 7,
+    "section": "HTML Elements",
+    "title": "Exercises"
+  },
+  {
+    "id": 8,
+    "section": "HTML Elements",
+    "title": "Code Challenge"
+  },
+  {
+    "id": 9,
+    "section": "HTML Attributes",
+    "title": "Attributes"
+  },
+  {
+    "id": 10,
+    "section": "HTML Attributes",
+    "title": "Exercises"
+  },
+  {
+    "id": 11,
+    "section": "HTML Attributes",
+    "title": "Code Challenge"
+  },
+  {
+    "id": 12,
+    "section": "HTML Headings",
+    "title": "Headings"
+  },
+  {
+    "id": 13,
+    "section": "HTML Headings",
+    "title": "Exercises"
+  },
+  {
+    "id": 14,
+    "section": "HTML Headings",
+    "title": "Code Challenge"
+  },
+  {
+    "id": 15,
+    "section": "HTML Paragraphs",
+    "title": "Paragraphs"
+  },
+  {
+    "id": 16,
+    "section": "HTML Paragraphs",
+    "title": "Exercises"
+  },
+  {
+    "id": 17,
+    "section": "HTML Paragraphs",
+    "title": "Code Challenge"
+  },
+  {
+    "id": 18,
+    "section": "HTML Styles",
+    "title": "Styles"
+  },
+  {
+    "id": 19,
+    "section": "HTML Styles",
+    "title": "Exercises"
+  },
+  {
+    "id": 20,
+    "section": "HTML Styles",
+    "title": "Code Challenge"
+  },
+  {
+    "id": 21,
+    "section": "HTML Formatting",
+    "title": "Formatting"
+  },
+  {
+    "id": 22,
+    "section": "HTML Formatting",
+    "title": "Exercises"
+  },
+  {
+    "id": 23,
+    "section": "HTML Formatting",
+    "title": "Code Challenge"
+  },
+  {
+    "id": 24,
+    "section": "HTML Quotations",
+    "title": "Quotations"
+  },
+  {
+    "id": 25,
+    "section": "HTML Quotations",
+    "title": "Exercises"
+  },
+  {
+    "id": 26,
+    "section": "HTML Quotations",
+    "title": "Code Challenge"
+  },
+  {
+    "id": 27,
+    "section": "HTML Comments",
+    "title": "Comments"
+  },
+  {
+    "id": 28,
+    "section": "HTML Comments",
+    "title": "Exercises"
+  },
+  {
+    "id": 29,
+    "section": "HTML Comments",
+    "title": "Code Challenge"
+  },
+  {
+    "id": 30,
+    "section": "HTML Colors",
+    "title": "Colors"
+  },
+  {
+    "id": 31,
+    "section": "HTML Colors",
+    "title": "RGB"
+  },
+  {
+    "id": 32,
+    "section": "HTML Colors",
+    "title": "HEX"
+  },
+  {
+    "id": 33,
+    "section": "HTML Colors",
+    "title": "HSL"
+  },
+  {
+    "id": 34,
+    "section": "HTML Colors",
+    "title": "Exercises"
+  },
+  {
+    "id": 35,
+    "section": "HTML Colors",
+    "title": "Code Challenge"
+  },
+  {
+    "id": 36,
+    "section": "HTML CSS",
+    "title": "CSS"
+  },
+  {
+    "id": 37,
+    "section": "HTML CSS",
+    "title": "Exercises"
+  },
+  {
+    "id": 38,
+    "section": "HTML CSS",
+    "title": "Code Challenge"
+  },
+  {
+    "id": 39,
+    "section": "HTML Links",
+    "title": "Links"
+  },
+  {
+    "id": 40,
+    "section": "HTML Links",
+    "title": "Link Colors"
+  },
+  {
+    "id": 41,
+    "section": "HTML Links",
+    "title": "Link Bookmarks"
+  },
+  {
+    "id": 42,
+    "section": "HTML Links",
+    "title": "Exercises"
+  },
+  {
+    "id": 43,
+    "section": "HTML Links",
+    "title": "Code Challenge"
+  },
+  {
+    "id": 44,
+    "section": "HTML Images",
+    "title": "Images"
+  },
+  {
+    "id": 45,
+    "section": "HTML Images",
+    "title": "Image Map"
+  },
+  {
+    "id": 46,
+    "section": "HTML Images",
+    "title": "Background Images"
+  },
+  {
+    "id": 47,
+    "section": "HTML Images",
+    "title": "The Picture Element"
+  },
+  {
+    "id": 48,
+    "section": "HTML Images",
+    "title": "Exercises"
+  },
+  {
+    "id": 49,
+    "section": "HTML Images",
+    "title": "Code Challenge"
+  },
+  {
+    "id": 50,
+    "section": "HTML Favicon",
+    "title": "Favicon"
+  },
+  {
+    "id": 51,
+    "section": "HTML Favicon",
+    "title": "Exercises"
+  },
+  {
+    "id": 52,
+    "section": "HTML Page Title",
+    "title": "Page Title"
+  },
+  {
+    "id": 53,
+    "section": "HTML Page Title",
+    "title": "Exercises"
+  },
+  {
+    "id": 54,
+    "section": "HTML Tables",
+    "title": "HTML Tables"
+  },
+  {
+    "id": 55,
+    "section": "HTML Tables",
+    "title": "Table Borders"
+  },
+  {
+    "id": 56,
+    "section": "HTML Tables",
+    "title": "Table Sizes"
+  },
+  {
+    "id": 57,
+    "section": "HTML Tables",
+    "title": "Table Headers"
+  },
+  {
+    "id": 58,
+    "section": "HTML Tables",
+    "title": "Padding & Spacing"
+  },
+  {
+    "id": 59,
+    "section": "HTML Tables",
+    "title": "Colspan & Rowspan"
+  },
+  {
+    "id": 60,
+    "section": "HTML Tables",
+    "title": "Table Styling"
+  },
+  {
+    "id": 61,
+    "section": "HTML Tables",
+    "title": "Table Colgroup"
+  },
+  {
+    "id": 62,
+    "section": "HTML Tables",
+    "title": "Exercises"
+  },
+  {
+    "id": 63,
+    "section": "HTML Tables",
+    "title": "Code Challenge"
+  },
+  {
+    "id": 64,
+    "section": "HTML Lists",
+    "title": "Lists"
+  },
+  {
+    "id": 65,
+    "section": "HTML Lists",
+    "title": "Unordered Lists"
+  },
+  {
+    "id": 66,
+    "section": "HTML Lists",
+    "title": "Ordered Lists"
+  },
+  {
+    "id": 67,
+    "section": "HTML Lists",
+    "title": "Other Lists"
+  },
+  {
+    "id": 68,
+    "section": "HTML Lists",
+    "title": "Exercises"
+  },
+  {
+    "id": 69,
+    "section": "HTML Lists",
+    "title": "Code Challenge"
+  },
+  {
+    "id": 70,
+    "section": "HTML Block & Inline",
+    "title": "Block & Inline"
+  },
+  {
+    "id": 71,
+    "section": "HTML Block & Inline",
+    "title": "Exercises"
+  },
+  {
+    "id": 72,
+    "section": "HTML Block & Inline",
+    "title": "Code Challenge"
+  },
+  {
+    "id": 73,
+    "section": "HTML Div",
+    "title": "Div"
+  },
+  {
+    "id": 74,
+    "section": "HTML Div",
+    "title": "Exercises"
+  },
+  {
+    "id": 75,
+    "section": "HTML Div",
+    "title": "Code Challenge"
+  },
+  {
+    "id": 76,
+    "section": "HTML Classes",
+    "title": "Classes"
+  },
+  {
+    "id": 77,
+    "section": "HTML Classes",
+    "title": "Exercises"
+  },
+  {
+    "id": 78,
+    "section": "HTML Classes",
+    "title": "Code Challenge"
+  },
+  {
+    "id": 79,
+    "section": "HTML Id",
+    "title": "Id"
+  },
+  {
+    "id": 80,
+    "section": "HTML Id",
+    "title": "Exercises"
+  },
+  {
+    "id": 81,
+    "section": "HTML Id",
+    "title": "Code Challenge"
+  },
+  {
+    "id": 82,
+    "section": "HTML Buttons",
+    "title": "Buttons"
+  },
+  {
+    "id": 83,
+    "section": "HTML Buttons",
+    "title": "Code Challenge"
+  },
+  {
+    "id": 84,
+    "section": "HTML Iframes",
+    "title": "Iframes"
+  },
+  {
+    "id": 85,
+    "section": "HTML Iframes",
+    "title": "Exercises"
+  },
+  {
+    "id": 86,
+    "section": "HTML Iframes",
+    "title": "Code Challenge"
+  },
+  {
+    "id": 87,
+    "section": "HTML JavaScript",
+    "title": "JavaScript"
+  },
+  {
+    "id": 88,
+    "section": "HTML JavaScript",
+    "title": "Exercises"
+  },
+  {
+    "id": 89,
+    "section": "HTML JavaScript",
+    "title": "Code Challenge"
+  },
+  {
+    "id": 90,
+    "section": "HTML File Paths",
+    "title": "File Paths"
+  },
+  {
+    "id": 91,
+    "section": "HTML File Paths",
+    "title": "Code Challenge"
+  },
+  {
+    "id": 92,
+    "section": "HTML Head",
+    "title": "Head"
+  },
+  {
+    "id": 93,
+    "section": "HTML Head",
+    "title": "Exercises"
+  },
+  {
+    "id": 94,
+    "section": "HTML Head",
+    "title": "Code Challenge"
+  },
+  {
+    "id": 95,
+    "section": "HTML Layout",
+    "title": "Layout"
+  },
+  {
+    "id": 96,
+    "section": "HTML Layout",
+    "title": "Code Challenge"
+  },
+  {
+    "id": 97,
+    "section": "HTML Responsive",
+    "title": "Responsive"
+  },
+  {
+    "id": 98,
+    "section": "HTML Responsive",
+    "title": "Exercises"
+  },
+  {
+    "id": 99,
+    "section": "HTML Responsive",
+    "title": "Code Challenge"
+  },
+  {
+    "id": 100,
+    "section": "HTML Computercode",
+    "title": "Computercode"
+  },
+  {
+    "id": 101,
+    "section": "HTML Computercode",
+    "title": "Exercises"
+  },
+  {
+    "id": 102,
+    "section": "HTML Computercode",
+    "title": "Code Challenge"
+  },
+  {
+    "id": 103,
+    "section": "HTML Semantics",
+    "title": "Semantics"
+  },
+  {
+    "id": 104,
+    "section": "HTML Semantics",
+    "title": "Exercises"
+  },
+  {
+    "id": 105,
+    "section": "HTML Semantics",
+    "title": "Code Challenge"
+  },
+  {
+    "id": 106,
+    "section": "HTML Entities",
+    "title": "Entities"
+  },
+  {
+    "id": 107,
+    "section": "HTML Entities",
+    "title": "Exercises"
+  },
+  {
+    "id": 108,
+    "section": "HTML Entities",
+    "title": "Code Challenge"
+  },
+  {
+    "id": 109,
+    "section": "HTML Forms",
+    "title": "Forms"
+  },
+  {
+    "id": 110,
+    "section": "HTML Forms",
+    "title": "Exercises"
+  },
+  {
+    "id": 111,
+    "section": "HTML Forms",
+    "title": "Code Challenge"
+  },
+  {
+    "id": 112,
+    "section": "HTML Form Attributes",
+    "title": "Form Attributes"
+  },
+  {
+    "id": 113,
+    "section": "HTML Form Attributes",
+    "title": "Exercises"
+  },
+  {
+    "id": 114,
+    "section": "HTML Form Elements",
+    "title": "Form Elements"
+  },
+  {
+    "id": 115,
+    "section": "HTML Form Elements",
+    "title": "Exercises"
+  },
+  {
+    "id": 116,
+    "section": "HTML Form Elements",
+    "title": "Code Challenge"
+  },
+  {
+    "id": 117,
+    "section": "HTML Input Types",
+    "title": "Input Types"
+  },
+  {
+    "id": 118,
+    "section": "HTML Input Types",
+    "title": "Exercises"
+  },
+  {
+    "id": 119,
+    "section": "HTML Input Types",
+    "title": "Code Challenge"
+  },
+  {
+    "id": 120,
+    "section": "HTML Input Attributes",
+    "title": "Input Attributes"
+  },
+  {
+    "id": 121,
+    "section": "HTML Input Attributes",
+    "title": "Exercises"
+  },
+  {
+    "id": 122,
+    "section": "Input Form Attributes",
+    "title": "Input Form Attributes"
+  },
+  {
+    "id": 123,
+    "section": "Input Form Attributes",
+    "title": "Exercises"
+  },
+  {
+    "id": 124,
+    "section": "HTML Canvas",
+    "title": "Canvas"
+  },
+  {
+    "id": 125,
+    "section": "HTML Canvas",
+    "title": "Code Challenge"
+  },
+  {
+    "id": 126,
+    "section": "HTML SVG",
+    "title": "SVG"
+  },
+  {
+    "id": 127,
+    "section": "HTML SVG",
+    "title": "Code Challenge"
+  },
+  {
+    "id": 128,
+    "section": "HTML Video",
+    "title": "Video"
+  },
+  {
+    "id": 129,
+    "section": "HTML Video",
+    "title": "Code Challenge"
+  },
+  {
+    "id": 130,
+    "section": "HTML Audio",
+    "title": "Audio"
+  },
+  {
+    "id": 131,
+    "section": "HTML Audio",
+    "title": "Code Challenge"
+  }
+]

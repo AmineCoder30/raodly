@@ -1,30 +1,32 @@
-import { migrateSectionsAndLessons } from "./002_sections_and_lessons";
+import { migrateInitialSchema } from "./001_initial_schema";
 
-describe("sections and lessons migration", () => {
-  it("creates hierarchy tables and rebuilds topic foreign keys", async () => {
+describe("initial schema migration", () => {
+  it("creates all 5 tables and indexes for the new schema", async () => {
     const statements: string[] = [];
     const db = {
-      getAllAsync: jest
-        .fn()
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([]),
       execAsync: jest.fn(async (sql: string) => {
         statements.push(sql);
       }),
-      runAsync: jest.fn(),
     };
 
-    await migrateSectionsAndLessons(db as never);
+    await migrateInitialSchema(db as never);
 
     const sql = statements.join("\n");
-    expect(sql).toContain("CREATE TABLE IF NOT EXISTS roadmap_sections");
+    expect(sql).toContain("CREATE TABLE IF NOT EXISTS roadmaps");
+    expect(sql).toContain("CREATE TABLE IF NOT EXISTS roadmap_topics");
     expect(sql).toContain("CREATE TABLE IF NOT EXISTS topic_lessons");
+    expect(sql).toContain("CREATE TABLE IF NOT EXISTS lesson");
+    expect(sql).toContain("CREATE TABLE IF NOT EXISTS lesson_messages");
+
+    expect(sql).toContain("roadmap_id INTEGER NOT NULL REFERENCES roadmaps(id)");
+    expect(sql).toContain("topic_id INTEGER NOT NULL REFERENCES roadmap_topics(id)");
     expect(sql).toContain(
-      "section_id TEXT NOT NULL REFERENCES roadmap_sections(id)",
+      "topic_lesson_id INTEGER NOT NULL UNIQUE REFERENCES topic_lessons(id)",
     );
-    expect(sql).toContain(
-      "topic_id TEXT NOT NULL REFERENCES roadmap_topics(id)",
-    );
-    expect(sql).toContain("CREATE INDEX idx_roadmap_topics_section_order");
+    expect(sql).toContain("lesson_id INTEGER NOT NULL REFERENCES lesson(id)");
+
+    expect(sql).toContain("CREATE INDEX IF NOT EXISTS idx_topics_roadmap");
+    expect(sql).toContain("CREATE INDEX IF NOT EXISTS idx_lessons_topic");
+    expect(sql).toContain("CREATE INDEX IF NOT EXISTS idx_messages_lesson");
   });
 });

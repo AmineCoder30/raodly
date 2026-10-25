@@ -3,52 +3,49 @@ import {
   getRoadmapWithTopics,
   getTopicLessons,
   listRoadmaps,
-  listTopicProgress,
-  LOCAL_USER_ID,
-  selectRoadmap,
-  updateTopicProgress,
-  upsertSection,
   upsertTopicLesson,
   type UpsertRoadmapInput,
   type UpsertTopicInput,
+  type UpsertTopicLessonInput,
   upsertRoadmap,
   upsertTopic,
+  updateLessonProgress,
 } from "@/services/roadmapRepository";
+import {
+  syncRoadmaps,
+  syncRoadmapTopics,
+  syncTopicLessons,
+} from "@/services/syncService";
 import type {
   Roadmap,
-  RoadmapWithSections,
-  RoadmapSection,
+  RoadmapWithTopics,
   TopicLesson,
-  TopicProgress,
-  TopicProgressStatus,
 } from "@/types/roadmap";
 
 type RoadmapStore = {
-  userId: string;
   roadmaps: Roadmap[];
-  activeRoadmap: RoadmapWithSections | null;
-  lessonsByTopicId: Record<string, TopicLesson[]>;
-  progressByTopicId: Record<string, TopicProgress>;
+  activeRoadmap: RoadmapWithTopics | null;
+  lessonsByTopicId: Record<number, TopicLesson[]>;
   isLoading: boolean;
   isHydrated: boolean;
   error: string | null;
-  hydrate: (userId?: string) => Promise<void>;
+  hydrate: () => Promise<void>;
+  syncStartupRoadmaps: () => Promise<Roadmap[]>;
   loadRoadmaps: () => Promise<void>;
-  loadRoadmap: (roadmapId: string) => Promise<RoadmapWithSections | null>;
-  saveRoadmap: (input: UpsertRoadmapInput) => Promise<string>;
-  saveSection: (input: Omit<RoadmapSection, "topics"> & {
-    id?: string;
-    createdAt?: string;
-    updatedAt?: string;
-    deletedAt?: string | null;
-  }) => Promise<string>;
-  saveTopic: (input: UpsertTopicInput) => Promise<string>;
-  saveLesson: (input: Parameters<typeof upsertTopicLesson>[0]) => Promise<string>;
-  loadTopicLessons: (topicId: string) => Promise<TopicLesson[]>;
-  selectRoadmap: (roadmapId: string) => Promise<void>;
+  loadRoadmap: (roadmapId: number) => Promise<RoadmapWithTopics | null>;
+  saveRoadmap: (input: UpsertRoadmapInput) => Promise<number>;
+  saveTopic: (input: UpsertTopicInput) => Promise<number>;
+  saveLesson: (input: UpsertTopicLessonInput) => Promise<number>;
+  loadTopicLessons: (topicId: number) => Promise<TopicLesson[]>;
+  setLessonProgress: (
+    topicLessonId: number,
+    isCompleted: boolean,
+    quizAnswer?: number | null,
+    quizCorrect?: boolean,
+  ) => Promise<void>;
   setTopicProgress: (
-    topicId: string,
-    status: TopicProgressStatus,
+    topicLessonId: number | string,
+    status: string,
     quizAnswer?: number | null,
     quizCorrect?: boolean,
   ) => Promise<void>;
@@ -57,41 +54,31 @@ type RoadmapStore = {
 
 let hydrationPromise: Promise<void> | null = null;
 
-function progressRecord(
-  progress: TopicProgress[],
-): Record<string, TopicProgress> {
-  return Object.fromEntries(progress.map((item) => [item.topicId, item]));
-}
-
-async function loadProgress(
-  userId: string,
-  roadmap: RoadmapWithSections,
-): Promise<Record<string, TopicProgress>> {
-  const topicIds = roadmap.sections.flatMap((section) =>
-    section.topics.map((topic) => topic.id),
-  );
-  const progress = await listTopicProgress(userId, topicIds);
-  return progressRecord(progress);
-}
-
 export const useRoadmapStore = create<RoadmapStore>((set, get) => ({
-  userId: LOCAL_USER_ID,
   roadmaps: [],
   activeRoadmap: null,
   lessonsByTopicId: {},
-  progressByTopicId: {},
   isLoading: false,
   isHydrated: false,
   error: null,
 
-  hydrate: async (userId = get().userId) => {
+  hydrate: async () => {
     if (hydrationPromise) return hydrationPromise;
 
     hydrationPromise = (async () => {
-      set({ userId, isLoading: true, error: null });
+      set({ isLoading: true, error: null });
       try {
-        const roadmaps = await listRoadmaps();
-        set({ roadmaps, isHydrated: true });
+        // Step 1: Load existing local roadmaps from SQLite for immediate UI availability
+        const localRoadmaps = await listRoadmaps();
+        set({ roadmaps: localRoadmaps, isHydrated: true });
+
+        // Step 2: Sync from Supabase on startup to discover new roadmaps
+        try {
+          const syncedRoadmaps = await syncRoadmaps();
+          set({ roadmaps: syncedRoadmaps });
+        } catch (syncError) {
+          console.warn("[hydrate] Supabase roadmaps sync failed, local roadmaps retained:", syncError);
+        }
       } catch (cause) {
         const error =
           cause instanceof Error ? cause.message : "Failed to load roadmaps";
@@ -104,6 +91,22 @@ export const useRoadmapStore = create<RoadmapStore>((set, get) => ({
     })();
 
     return hydrationPromise;
+  },
+
+  syncStartupRoadmaps: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const roadmaps = await syncRoadmaps();
+      set({ roadmaps, isHydrated: true });
+      return roadmaps;
+    } catch (cause) {
+      const error =
+        cause instanceof Error ? cause.message : "Failed to sync roadmaps";
+      set({ error });
+      throw cause;
+    } finally {
+      set({ isLoading: false });
+    }
   },
 
   loadRoadmaps: async () => {
@@ -124,18 +127,45 @@ export const useRoadmapStore = create<RoadmapStore>((set, get) => ({
   loadRoadmap: async (roadmapId) => {
     set({ isLoading: true, error: null });
     try {
-      const activeRoadmap = await getRoadmapWithTopics(roadmapId, get().userId);
+      // Step 1: Check local cache first
+      let activeRoadmap = await getRoadmapWithTopics(roadmapId);
+
+      if (activeRoadmap && activeRoadmap.topics.length > 0) {
+        // Display locally cached content immediately
+        set({ activeRoadmap });
+
+        // Background sync to discover newly added topics without blocking UI
+        void syncRoadmapTopics(roadmapId)
+          .then(async () => {
+            const updated = await getRoadmapWithTopics(roadmapId);
+            if (updated) {
+              set({ activeRoadmap: updated });
+            }
+          })
+          .catch((err) => {
+            console.warn(`[loadRoadmap] Background topic sync failed:`, err);
+          });
+
+        return activeRoadmap;
+      }
+
+      // Step 2: Content not cached locally — fetch and sync from Supabase
+      try {
+        await syncRoadmapTopics(roadmapId);
+        activeRoadmap = await getRoadmapWithTopics(roadmapId);
+      } catch (syncError) {
+        console.warn(`[loadRoadmap] Remote topic fetch failed:`, syncError);
+      }
+
       if (!activeRoadmap) {
         set({
           activeRoadmap: null,
-          progressByTopicId: {},
           lessonsByTopicId: {},
         });
         return null;
       }
 
-      const progressByTopicId = await loadProgress(get().userId, activeRoadmap);
-      set({ activeRoadmap, progressByTopicId });
+      set({ activeRoadmap });
       return activeRoadmap;
     } catch (cause) {
       const error =
@@ -168,33 +198,13 @@ export const useRoadmapStore = create<RoadmapStore>((set, get) => ({
     try {
       const id = await upsertTopic(input);
       const activeRoadmap = get().activeRoadmap;
-      if (
-        activeRoadmap?.sections.some((section) => section.id === input.sectionId)
-      ) {
+      if (activeRoadmap && activeRoadmap.id === input.roadmapId) {
         await get().loadRoadmap(activeRoadmap.id);
       }
       return id;
     } catch (cause) {
       const error =
         cause instanceof Error ? cause.message : "Failed to save topic";
-      set({ error });
-      throw cause;
-    } finally {
-      set({ isLoading: false });
-    }
-  },
-
-  saveSection: async (input) => {
-    set({ isLoading: true, error: null });
-    try {
-      const id = await upsertSection(input);
-      if (get().activeRoadmap?.id === input.roadmapId) {
-        await get().loadRoadmap(input.roadmapId);
-      }
-      return id;
-    } catch (cause) {
-      const error =
-        cause instanceof Error ? cause.message : "Failed to save section";
       set({ error });
       throw cause;
     } finally {
@@ -223,7 +233,32 @@ export const useRoadmapStore = create<RoadmapStore>((set, get) => ({
   loadTopicLessons: async (topicId) => {
     set({ isLoading: true, error: null });
     try {
-      const lessons = await getTopicLessons(topicId);
+      const localLessons = await getTopicLessons(topicId);
+      if (localLessons.length > 0) {
+        set((state) => ({
+          lessonsByTopicId: {
+            ...state.lessonsByTopicId,
+            [topicId]: localLessons,
+          },
+        }));
+
+        // Background sync to discover newly added or updated lessons
+        void syncTopicLessons(topicId)
+          .then((updated) => {
+            set((state) => ({
+              lessonsByTopicId: {
+                ...state.lessonsByTopicId,
+                [topicId]: updated,
+              },
+            }));
+          })
+          .catch(() => {});
+
+        return localLessons;
+      }
+
+      // Not cached locally — fetch and sync from Supabase
+      const lessons = await syncTopicLessons(topicId);
       set((state) => ({
         lessonsByTopicId: {
           ...state.lessonsByTopicId,
@@ -241,53 +276,46 @@ export const useRoadmapStore = create<RoadmapStore>((set, get) => ({
     }
   },
 
-  selectRoadmap: async (roadmapId) => {
-    set({ isLoading: true, error: null });
-    try {
-      await selectRoadmap(get().userId, roadmapId);
-      await get().loadRoadmap(roadmapId);
-    } catch (cause) {
-      const error =
-        cause instanceof Error ? cause.message : "Failed to select roadmap";
-      set({ error });
-      throw cause;
-    } finally {
-      set({ isLoading: false });
-    }
-  },
-
-  setTopicProgress: async (
-    topicId,
-    status,
+  setLessonProgress: async (
+    topicLessonId,
+    isCompleted,
     quizAnswer = null,
     quizCorrect = false,
   ) => {
     set({ error: null });
     try {
-      await updateTopicProgress(
-        get().userId,
-        topicId,
-        status,
+      await updateLessonProgress(
+        topicLessonId,
+        isCompleted,
         quizAnswer,
         quizCorrect,
       );
-      const progress = await listTopicProgress(get().userId, [topicId]);
-      if (progress[0]) {
-        set((state) => ({
-          progressByTopicId: {
-            ...state.progressByTopicId,
-            [topicId]: progress[0],
-          },
-        }));
-      }
     } catch (cause) {
       const error =
         cause instanceof Error
           ? cause.message
-          : "Failed to update topic progress";
+          : "Failed to update lesson progress";
       set({ error });
       throw cause;
     }
+  },
+
+  setTopicProgress: async (
+    topicLessonId,
+    status,
+    quizAnswer = null,
+    quizCorrect = false,
+  ) => {
+    const rawId =
+      typeof topicLessonId === "number"
+        ? topicLessonId
+        : parseInt(String(topicLessonId).replace(/\D/g, ""), 10) || 1;
+    return get().setLessonProgress(
+      rawId,
+      status === "completed",
+      quizAnswer,
+      quizCorrect,
+    );
   },
 
   clearError: () => set({ error: null }),

@@ -1,62 +1,126 @@
 import { getDatabase } from "@/database";
-import { createUuid } from "@/utils/uuid";
 import type {
+  Lesson,
+  LessonMessage,
   Roadmap,
   RoadmapDifficulty,
-  RoadmapSection,
   RoadmapTopic,
-  RoadmapTopicWithProgress,
-  RoadmapVisibility,
-  RoadmapWithSections,
+  RoadmapTopicWithLessons,
+  RoadmapWithTopics,
   TopicLesson,
-  TopicProgress,
-  TopicProgressStatus,
 } from "@/types/roadmap";
 
 export const LOCAL_USER_ID = "local-user";
 
-export type UpsertRoadmapInput = Omit<
-  Roadmap,
-  "id" | "createdAt" | "updatedAt" | "deletedAt"
-> & { id?: string; createdAt?: string; updatedAt?: string; deletedAt?: string | null };
-export type UpsertSectionInput = Omit<
-  RoadmapSection,
-  "topics" | "createdAt" | "updatedAt" | "deletedAt"
-> & { id?: string; createdAt?: string; updatedAt?: string; deletedAt?: string | null };
-export type UpsertTopicInput = Omit<
-  RoadmapTopic,
-  "id" | "createdAt" | "updatedAt" | "deletedAt"
-> & { id?: string; createdAt?: string; updatedAt?: string; deletedAt?: string | null };
-export type UpsertLessonInput = Omit<
-  TopicLesson,
-  "id" | "createdAt" | "updatedAt" | "deletedAt"
-> & { id?: string; createdAt?: string; updatedAt?: string; deletedAt?: string | null };
+// ── Row types (match SQLite column names) ────────────────────────────
 
 type RoadmapRow = {
-  id: string; title: string; description: string | null; category: string | null;
-  difficulty: RoadmapDifficulty; language: string; created_by: string | null;
-  visibility: RoadmapVisibility; created_at: string; updated_at: string; deleted_at: string | null;
-};
-type SectionRow = {
-  id: string; roadmap_id: string; title: string; order_index: number;
-  created_at: string; updated_at: string; deleted_at: string | null;
-};
-type TopicRow = {
-  id: string; section_id: string; title: string; description: string | null;
-  order_index: number; estimated_minutes: number | null; created_at: string;
-  updated_at: string; deleted_at: string | null;
-};
-type LessonRow = {
-  id: string; topic_id: string; title: string; order_index: number;
-  created_at: string; updated_at: string; deleted_at: string | null;
-};
-type ProgressRow = {
-  id: string; user_id: string; topic_id: string; status: TopicProgressStatus;
-  completed_at: string | null; updated_at: string; quiz_answer: number | null;
-  quiz_correct: number;
+  id: number;
+  title: string;
+  description: string | null;
+  progress: string;
+  difficulty: RoadmapDifficulty;
+  created_at: string;
 };
 
-const now = () => new Date().toISOString();
+type TopicRow = {
+  id: number;
+  roadmap_id: number;
+  title: string;
+  description: string | null;
+  order_index: number;
+  created_at: string;
+};
+
+type TopicLessonRow = {
+  id: number;
+  topic_id: number;
+  title: string;
+  description: string | null;
+  order_index: number;
+  created_at: string;
+};
+
+type LessonRow = {
+  id: number;
+  topic_lesson_id: number;
+  is_completed: number;
+  language: string;
+  content_version: string;
+  lesson_json: string;
+  quiz_answer: number | null;
+  quiz_correct: number;
+  updated_at: number;
+};
+
+type LessonMessageRow = {
+  id: number;
+  lesson_id: number;
+  question: string;
+  answer_json: string;
+  created_at: string;
+};
+
+// ── Mappers ──────────────────────────────────────────────────────────
+
+function mapRoadmap(row: RoadmapRow): Roadmap {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    progress: row.progress,
+    difficulty: row.difficulty,
+    createdAt: row.created_at,
+  };
+}
+
+function mapTopic(row: TopicRow): RoadmapTopic {
+  return {
+    id: row.id,
+    roadmapId: row.roadmap_id,
+    title: row.title,
+    description: row.description,
+    orderIndex: row.order_index,
+    createdAt: row.created_at,
+  };
+}
+
+function mapTopicLesson(row: TopicLessonRow): TopicLesson {
+  return {
+    id: row.id,
+    topicId: row.topic_id,
+    title: row.title,
+    description: row.description,
+    orderIndex: row.order_index,
+    createdAt: row.created_at,
+  };
+}
+
+function mapLesson(row: LessonRow): Lesson {
+  return {
+    id: row.id,
+    topicLessonId: row.topic_lesson_id,
+    isCompleted: row.is_completed === 1,
+    language: row.language,
+    contentVersion: row.content_version,
+    lessonJson: row.lesson_json,
+    quizAnswer: row.quiz_answer,
+    quizCorrect: row.quiz_correct === 1,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapLessonMessage(row: LessonMessageRow): LessonMessage {
+  return {
+    id: row.id,
+    lessonId: row.lesson_id,
+    question: row.question,
+    answerJson: row.answer_json,
+    createdAt: row.created_at,
+  };
+}
+
+// ── Validators ───────────────────────────────────────────────────────
 
 function assertDifficulty(value: string): asserts value is RoadmapDifficulty {
   if (!["beginner", "intermediate", "advanced"].includes(value)) {
@@ -64,77 +128,83 @@ function assertDifficulty(value: string): asserts value is RoadmapDifficulty {
   }
 }
 
-function assertStatus(value: string): asserts value is TopicProgressStatus {
-  if (!["locked", "active", "completed"].includes(value)) {
-    throw new Error(`Invalid topic progress status: ${value}`);
-  }
-}
+// ── Input types ──────────────────────────────────────────────────────
 
-function mapRoadmap(row: RoadmapRow): Roadmap {
-  return {
-    id: row.id, title: row.title, description: row.description, category: row.category,
-    difficulty: row.difficulty, language: row.language, createdBy: row.created_by,
-    visibility: row.visibility, createdAt: row.created_at, updatedAt: row.updated_at,
-    deletedAt: row.deleted_at,
-  };
-}
+export type UpsertRoadmapInput = {
+  id?: number;
+  title: string;
+  description?: string | null;
+  progress?: string;
+  difficulty: RoadmapDifficulty;
+};
 
-function mapSection(row: SectionRow): RoadmapSection {
-  return {
-    id: row.id, roadmapId: row.roadmap_id, title: row.title,
-    orderIndex: row.order_index, createdAt: row.created_at,
-    updatedAt: row.updated_at, deletedAt: row.deleted_at, topics: [],
-  };
-}
+export type UpsertTopicInput = {
+  id?: number;
+  roadmapId: number;
+  title: string;
+  description?: string | null;
+  orderIndex: number;
+};
 
-function mapTopic(row: TopicRow): RoadmapTopic {
-  return {
-    id: row.id, sectionId: row.section_id, title: row.title,
-    description: row.description, orderIndex: row.order_index,
-    estimatedMinutes: row.estimated_minutes, createdAt: row.created_at,
-    updatedAt: row.updated_at, deletedAt: row.deleted_at,
-  };
-}
+export type UpsertTopicLessonInput = {
+  id?: number;
+  topicId: number;
+  title: string;
+  description?: string | null;
+  orderIndex: number;
+};
 
-function mapProgress(row: ProgressRow): TopicProgress {
-  return {
-    id: row.id, userId: row.user_id, topicId: row.topic_id,
-    status: row.status, completedAt: row.completed_at, updatedAt: row.updated_at,
-    quizAnswer: row.quiz_answer, quizCorrect: row.quiz_correct === 1,
-  };
-}
+// ═══════════════════════════════════════════════════════════════════════
+// ROADMAPS
+// ═══════════════════════════════════════════════════════════════════════
 
-function mapLesson(row: LessonRow): TopicLesson {
-  return {
-    id: row.id, topicId: row.topic_id, title: row.title,
-    orderIndex: row.order_index, createdAt: row.created_at,
-    updatedAt: row.updated_at, deletedAt: row.deleted_at,
-  };
-}
-
-export async function upsertRoadmap(input: UpsertRoadmapInput): Promise<string> {
+export async function upsertRoadmap(input: UpsertRoadmapInput): Promise<number> {
   assertDifficulty(input.difficulty);
   const db = await getDatabase();
-  const id = input.id ?? createUuid();
-  const updatedAt = input.updatedAt ?? now();
-  await db.runAsync(
-    `INSERT INTO roadmaps
-      (id, title, description, category, difficulty, language, created_by, visibility,
-       created_at, updated_at, deleted_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(id) DO UPDATE SET
-       title = excluded.title, description = excluded.description, category = excluded.category,
-       difficulty = excluded.difficulty, language = excluded.language,
-       created_by = excluded.created_by, visibility = excluded.visibility,
-       updated_at = excluded.updated_at, deleted_at = excluded.deleted_at`,
-    id, input.title, input.description, input.category, input.difficulty, input.language,
-    input.createdBy, input.visibility, input.createdAt ?? updatedAt, updatedAt,
-    input.deletedAt ?? null,
+
+  if (input.id != null) {
+    const existing = await db.getFirstAsync<{ id: number; progress: string }>(
+      "SELECT id, progress FROM roadmaps WHERE id = ?",
+      input.id,
+    );
+    if (existing) {
+      await db.runAsync(
+        `UPDATE roadmaps
+         SET title = ?, description = ?, progress = ?, difficulty = ?
+         WHERE id = ?`,
+        input.title,
+        input.description ?? null,
+        input.progress ?? existing.progress,
+        input.difficulty,
+        input.id,
+      );
+      return input.id;
+    }
+
+    await db.runAsync(
+      `INSERT INTO roadmaps (id, title, description, progress, difficulty)
+       VALUES (?, ?, ?, ?, ?)`,
+      input.id,
+      input.title,
+      input.description ?? null,
+      input.progress ?? "0%",
+      input.difficulty,
+    );
+    return input.id;
+  }
+
+  const result = await db.runAsync(
+    `INSERT INTO roadmaps (title, description, progress, difficulty)
+     VALUES (?, ?, ?, ?)`,
+    input.title,
+    input.description ?? null,
+    input.progress ?? "0%",
+    input.difficulty,
   );
-  return id;
+  return result.lastInsertRowId;
 }
 
-export async function getRoadmap(id: string): Promise<Roadmap | null> {
+export async function getRoadmap(id: number): Promise<Roadmap | null> {
   const db = await getDatabase();
   const row = await db.getFirstAsync<RoadmapRow>(
     "SELECT * FROM roadmaps WHERE id = ?",
@@ -146,202 +216,290 @@ export async function getRoadmap(id: string): Promise<Roadmap | null> {
 export async function listRoadmaps(): Promise<Roadmap[]> {
   const db = await getDatabase();
   const rows = await db.getAllAsync<RoadmapRow>(
-    "SELECT * FROM roadmaps WHERE deleted_at IS NULL ORDER BY updated_at DESC",
+    "SELECT * FROM roadmaps ORDER BY created_at DESC",
   );
   return rows.map(mapRoadmap);
 }
 
-export async function upsertSection(input: UpsertSectionInput): Promise<string> {
+// ═══════════════════════════════════════════════════════════════════════
+// ROADMAP TOPICS
+// ═══════════════════════════════════════════════════════════════════════
+
+export async function upsertTopic(input: UpsertTopicInput): Promise<number> {
   const db = await getDatabase();
-  const id = input.id ?? createUuid();
-  const updatedAt = input.updatedAt ?? now();
-  await db.runAsync(
-    `INSERT INTO roadmap_sections
-      (id, roadmap_id, title, order_index, created_at, updated_at, deleted_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(id) DO UPDATE SET
-       roadmap_id = excluded.roadmap_id, title = excluded.title,
-       order_index = excluded.order_index, updated_at = excluded.updated_at,
-       deleted_at = excluded.deleted_at`,
-    id, input.roadmapId, input.title, input.orderIndex,
-    input.createdAt ?? updatedAt, updatedAt, input.deletedAt ?? null,
+
+  if (input.id != null) {
+    const existing = await db.getFirstAsync<{ id: number }>(
+      "SELECT id FROM roadmap_topics WHERE id = ?",
+      input.id,
+    );
+    if (existing) {
+      await db.runAsync(
+        `UPDATE roadmap_topics
+         SET roadmap_id = ?, title = ?, description = ?, order_index = ?
+         WHERE id = ?`,
+        input.roadmapId,
+        input.title,
+        input.description ?? null,
+        input.orderIndex,
+        input.id,
+      );
+      return input.id;
+    }
+
+    await db.runAsync(
+      `INSERT INTO roadmap_topics (id, roadmap_id, title, description, order_index)
+       VALUES (?, ?, ?, ?, ?)`,
+      input.id,
+      input.roadmapId,
+      input.title,
+      input.description ?? null,
+      input.orderIndex,
+    );
+    return input.id;
+  }
+
+  const result = await db.runAsync(
+    `INSERT INTO roadmap_topics (roadmap_id, title, description, order_index)
+     VALUES (?, ?, ?, ?)`,
+    input.roadmapId,
+    input.title,
+    input.description ?? null,
+    input.orderIndex,
   );
-  return id;
+  return result.lastInsertRowId;
 }
 
-export async function upsertTopic(input: UpsertTopicInput): Promise<string> {
+export async function getTopicsByRoadmap(roadmapId: number): Promise<RoadmapTopic[]> {
   const db = await getDatabase();
-  const id = input.id ?? createUuid();
-  const updatedAt = input.updatedAt ?? now();
-  await db.runAsync(
-    `INSERT INTO roadmap_topics
-      (id, section_id, title, description, order_index, estimated_minutes,
-       created_at, updated_at, deleted_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(id) DO UPDATE SET
-       section_id = excluded.section_id, title = excluded.title,
-       description = excluded.description, order_index = excluded.order_index,
-       estimated_minutes = excluded.estimated_minutes, updated_at = excluded.updated_at,
-       deleted_at = excluded.deleted_at`,
-    id, input.sectionId, input.title, input.description, input.orderIndex,
-    input.estimatedMinutes, input.createdAt ?? updatedAt, updatedAt,
-    input.deletedAt ?? null,
+  const rows = await db.getAllAsync<TopicRow>(
+    `SELECT * FROM roadmap_topics
+     WHERE roadmap_id = ?
+     ORDER BY order_index ASC, id ASC`,
+    roadmapId,
   );
-  return id;
+  return rows.map(mapTopic);
 }
 
-export async function upsertTopicLesson(input: UpsertLessonInput): Promise<string> {
+// ═══════════════════════════════════════════════════════════════════════
+// TOPIC LESSONS (sub-lesson outlines)
+// ═══════════════════════════════════════════════════════════════════════
+
+export async function upsertTopicLesson(
+  input: UpsertTopicLessonInput,
+): Promise<number> {
   const db = await getDatabase();
-  const id = input.id ?? createUuid();
-  const updatedAt = input.updatedAt ?? now();
-  await db.runAsync(
-    `INSERT INTO topic_lessons
-      (id, topic_id, title, order_index, created_at, updated_at, deleted_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(id) DO UPDATE SET
-       topic_id = excluded.topic_id, title = excluded.title,
-       order_index = excluded.order_index, updated_at = excluded.updated_at,
-       deleted_at = excluded.deleted_at`,
-    id, input.topicId, input.title, input.orderIndex,
-    input.createdAt ?? updatedAt, updatedAt, input.deletedAt ?? null,
+
+  if (input.id != null) {
+    const existing = await db.getFirstAsync<{ id: number }>(
+      "SELECT id FROM topic_lessons WHERE id = ?",
+      input.id,
+    );
+    if (existing) {
+      await db.runAsync(
+        `UPDATE topic_lessons
+         SET topic_id = ?, title = ?, description = ?, order_index = ?
+         WHERE id = ?`,
+        input.topicId,
+        input.title,
+        input.description ?? null,
+        input.orderIndex,
+        input.id,
+      );
+      return input.id;
+    }
+
+    await db.runAsync(
+      `INSERT INTO topic_lessons (id, topic_id, title, description, order_index)
+       VALUES (?, ?, ?, ?, ?)`,
+      input.id,
+      input.topicId,
+      input.title,
+      input.description ?? null,
+      input.orderIndex,
+    );
+    return input.id;
+  }
+
+  const result = await db.runAsync(
+    `INSERT INTO topic_lessons (topic_id, title, description, order_index)
+     VALUES (?, ?, ?, ?)`,
+    input.topicId,
+    input.title,
+    input.description ?? null,
+    input.orderIndex,
   );
-  return id;
+  return result.lastInsertRowId;
 }
 
-export async function getTopicLessons(topicId: string): Promise<TopicLesson[]> {
+export async function getTopicLessons(topicId: number): Promise<TopicLesson[]> {
   const db = await getDatabase();
-  const rows = await db.getAllAsync<LessonRow>(
+  const rows = await db.getAllAsync<TopicLessonRow>(
     `SELECT * FROM topic_lessons
-     WHERE topic_id = ? AND deleted_at IS NULL
+     WHERE topic_id = ?
      ORDER BY order_index ASC, id ASC`,
     topicId,
   );
-  return rows.map(mapLesson);
+  return rows.map(mapTopicLesson);
 }
 
-export async function getRoadmapWithSections(
-  roadmapId: string,
-  userId = LOCAL_USER_ID,
-): Promise<RoadmapWithSections | null> {
+// ═══════════════════════════════════════════════════════════════════════
+// LESSON (content + progress for a topic_lesson)
+// ═══════════════════════════════════════════════════════════════════════
+
+export async function upsertLesson(
+  topicLessonId: number,
+  lessonJson: string,
+  language = "ar",
+  contentVersion = "lesson-v1-ar",
+  updatedAt = Date.now(),
+): Promise<number> {
+  const db = await getDatabase();
+  const result = await db.runAsync(
+    `INSERT INTO lesson (topic_lesson_id, lesson_json, language, content_version, updated_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(topic_lesson_id) DO UPDATE SET
+       lesson_json = excluded.lesson_json,
+       language = excluded.language,
+       content_version = excluded.content_version,
+       updated_at = excluded.updated_at`,
+    topicLessonId,
+    lessonJson,
+    language,
+    contentVersion,
+    updatedAt,
+  );
+  return result.lastInsertRowId;
+}
+
+export async function getLesson(topicLessonId: number): Promise<Lesson | null> {
+  const db = await getDatabase();
+  const row = await db.getFirstAsync<LessonRow>(
+    "SELECT * FROM lesson WHERE topic_lesson_id = ?",
+    topicLessonId,
+  );
+  return row ? mapLesson(row) : null;
+}
+
+export async function updateLessonProgress(
+  topicLessonId: number,
+  isCompleted: boolean,
+  quizAnswer: number | null = null,
+  quizCorrect = false,
+): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync(
+    `UPDATE lesson
+     SET is_completed = ?, quiz_answer = ?, quiz_correct = ?, updated_at = ?
+     WHERE topic_lesson_id = ?`,
+    isCompleted ? 1 : 0,
+    quizAnswer,
+    quizCorrect ? 1 : 0,
+    Date.now(),
+    topicLessonId,
+  );
+}
+
+/** Compatibility helper for callers or tests expecting updateTopicProgress */
+export async function updateTopicProgress(
+  _userId: string,
+  topicLessonId: number | string,
+  status: string,
+  quizAnswer: number | null = null,
+  quizCorrect = false,
+): Promise<void> {
+  const rawId =
+    typeof topicLessonId === "number"
+      ? topicLessonId
+      : parseInt(String(topicLessonId).replace(/\D/g, ""), 10) || 1;
+  await updateLessonProgress(
+    rawId,
+    status === "completed",
+    quizAnswer,
+    quizCorrect,
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// LESSON MESSAGES (follow-up Q&A)
+// ═══════════════════════════════════════════════════════════════════════
+
+export async function addLessonMessage(
+  lessonId: number,
+  question: string,
+  answerJson: string,
+): Promise<number> {
+  const db = await getDatabase();
+  const result = await db.runAsync(
+    `INSERT INTO lesson_messages (lesson_id, question, answer_json)
+     VALUES (?, ?, ?)`,
+    lessonId,
+    question,
+    answerJson,
+  );
+  return result.lastInsertRowId;
+}
+
+export async function getLessonMessages(
+  lessonId: number,
+): Promise<LessonMessage[]> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<LessonMessageRow>(
+    `SELECT * FROM lesson_messages
+     WHERE lesson_id = ?
+     ORDER BY created_at ASC`,
+    lessonId,
+  );
+  return rows.map(mapLessonMessage);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// COMPOSITE QUERIES
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * Load a roadmap with all its topics, each topic's lessons, and their
+ * completion status from the `lesson` table.
+ */
+export async function getRoadmapWithTopics(
+  roadmapId: number,
+): Promise<RoadmapWithTopics | null> {
   const roadmap = await getRoadmap(roadmapId);
   if (!roadmap) return null;
 
   const db = await getDatabase();
-  const sections = (
-    await db.getAllAsync<SectionRow>(
-      `SELECT * FROM roadmap_sections
-       WHERE roadmap_id = ? AND deleted_at IS NULL
-       ORDER BY order_index ASC, id ASC`,
-      roadmapId,
-    )
-  ).map(mapSection);
-  const topics = await db.getAllAsync<TopicRow>(
-    `SELECT topics.* FROM roadmap_topics AS topics
-     INNER JOIN roadmap_sections AS sections ON sections.id = topics.section_id
-     WHERE sections.roadmap_id = ? AND topics.deleted_at IS NULL
-       AND sections.deleted_at IS NULL
-     ORDER BY topics.section_id ASC, topics.order_index ASC, topics.id ASC`,
+
+  const topicRows = await db.getAllAsync<TopicRow>(
+    `SELECT * FROM roadmap_topics
+     WHERE roadmap_id = ?
+     ORDER BY order_index ASC, id ASC`,
     roadmapId,
   );
-  const topicIds = topics.map((topic) => topic.id);
-  const progress = await listTopicProgress(userId, topicIds);
-  const progressByTopicId = new Map(progress.map((item) => [item.topicId, item]));
 
-  const topicsBySection = new Map<string, RoadmapTopicWithProgress[]>();
-  for (const row of topics) {
-    const topic = mapTopic(row);
-    const topicProgress = progressByTopicId.get(topic.id) ?? null;
-    const sectionTopics = topicsBySection.get(topic.sectionId) ?? [];
-    sectionTopics.push({
+  const topics: RoadmapTopicWithLessons[] = [];
+
+  for (const topicRow of topicRows) {
+    const topic = mapTopic(topicRow);
+
+    const lessonRows = await db.getAllAsync<
+      TopicLessonRow & { is_completed: number | null }
+    >(
+      `SELECT tl.*, l.is_completed
+       FROM topic_lessons tl
+       LEFT JOIN lesson l ON l.topic_lesson_id = tl.id
+       WHERE tl.topic_id = ?
+       ORDER BY tl.order_index ASC, tl.id ASC`,
+      topic.id,
+    );
+
+    topics.push({
       ...topic,
-      completed: topicProgress?.status === "completed",
-      progress: topicProgress,
+      lessons: lessonRows.map((row) => ({
+        ...mapTopicLesson(row),
+        completed: row.is_completed === 1,
+      })),
     });
-    topicsBySection.set(topic.sectionId, sectionTopics);
   }
 
-  return {
-    ...roadmap,
-    sections: sections.map((section) => ({
-      ...section,
-      topics: topicsBySection.get(section.id) ?? [],
-    })),
-  };
-}
-
-/** Compatibility alias for callers that have not moved to sections yet. */
-export const getRoadmapWithTopics = getRoadmapWithSections;
-
-export async function selectRoadmap(userId: string, roadmapId: string): Promise<string> {
-  const db = await getDatabase();
-  const id = createUuid();
-  const timestamp = now();
-  let selectedId = id;
-  await db.withTransactionAsync(async () => {
-    const existing = await db.getFirstAsync<{ id: string }>(
-      "SELECT id FROM user_roadmaps WHERE user_id = ? AND roadmap_id = ?",
-      userId, roadmapId,
-    );
-    selectedId = existing?.id ?? id;
-    await db.runAsync(
-      `INSERT INTO user_roadmaps
-        (id, user_id, roadmap_id, started_at, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?)
-       ON CONFLICT(user_id, roadmap_id) DO UPDATE SET updated_at = excluded.updated_at`,
-      selectedId, userId, roadmapId, timestamp, timestamp, timestamp,
-    );
-  });
-  return selectedId;
-}
-
-export async function updateTopicProgress(
-  userId: string,
-  topicId: string,
-  status: TopicProgressStatus,
-  quizAnswer: number | null = null,
-  quizCorrect = false,
-): Promise<void> {
-  assertStatus(status);
-  const db = await getDatabase();
-  const timestamp = now();
-  await db.runAsync(
-    `INSERT INTO topic_progress
-      (id, user_id, topic_id, status, completed_at, updated_at, quiz_answer, quiz_correct)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(user_id, topic_id) DO UPDATE SET
-       status = excluded.status, completed_at = excluded.completed_at,
-       updated_at = excluded.updated_at, quiz_answer = excluded.quiz_answer,
-       quiz_correct = excluded.quiz_correct`,
-    createUuid(), userId, topicId, status,
-    status === "completed" ? timestamp : null, timestamp, quizAnswer,
-    quizCorrect ? 1 : 0,
-  );
-}
-
-export async function listTopicProgress(
-  userId: string,
-  topicIds?: string[],
-): Promise<TopicProgress[]> {
-  const db = await getDatabase();
-  const conditions = ["user_id = ?"];
-  const parameters: (string | number)[] = [userId];
-  if (topicIds && topicIds.length > 0) {
-    conditions.push(`topic_id IN (${topicIds.map(() => "?").join(", ")})`);
-    parameters.push(...topicIds);
-  }
-  const rows = await db.getAllAsync<ProgressRow>(
-    `SELECT * FROM topic_progress
-     WHERE ${conditions.join(" AND ")}
-     ORDER BY updated_at DESC`,
-    parameters,
-  );
-  return rows.map(mapProgress);
-}
-
-export async function getTopicProgress(
-  userId: string,
-  topicId: string,
-): Promise<TopicProgress | null> {
-  const rows = await listTopicProgress(userId, [topicId]);
-  return rows[0] ?? null;
+  return { ...roadmap, topics };
 }

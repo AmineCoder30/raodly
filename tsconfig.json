@@ -4,13 +4,13 @@
     "strict": true,
     "types": ["jest"],
     "paths": {
-      "@/*": [
-        "./src/*"
-      ],
-      "@/assets/*": [
-        "./assets/*"
-      ]
+      "@/*": ["./src/*"],
+      "@/assets/*": ["./assets/*"]
     }
+  },
+  "rules": {
+    "noEmit": true,
+    "react/no-did-mount-set-state": "off"
   },
   "include": [
     "**/*.ts",
